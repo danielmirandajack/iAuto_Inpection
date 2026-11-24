@@ -1,73 +1,105 @@
-# iAuto Inspection - Sistema de Visão Computacional
+# iAuto Inspection
 
-Este é um sistema avançado de inspeção industrial baseado em visão computacional, desenvolvido com **React**, **TensorFlow.js** e **Supabase**. O sistema permite a detecção de objetos, análise de conformidade (OK/FALHA) e medições métricas em tempo real diretamente no navegador.
+Sistema de inspeção industrial por visão computacional, da **iAutomotivo** (Daniel Miranda). Roda inteiro no navegador: câmera, treino da IA, inspeção OK/FALHA e medições em milímetros.
 
-## 🚀 Tecnologias Utilizadas
+Esta pasta (`Visão_local_V1`) é a **versão local / offline** (UI v2.7 Stable). Pacote npm: `smart-inspector`.
 
-- **Frontend:** React.js, Vite, Tailwind CSS.
-- **Inteligência Artificial:** TensorFlow.js, MobileNetV2, KNN Classifier.
-- **Backend & Banco de Dados:** Supabase (Cloud) e IndexedDB (Local para cache de treinamento).
-- **Ícones:** Lucide React.
-- **Segurança:** Vite Plugin JavaScript Obfuscator para proteção de código em produção.
+## O que faz
 
-## 📋 Funcionalidades Principais
+O operador escolhe um **modelo de inspeção** (ex.: um veículo), posiciona regiões na imagem da câmera e treina a IA com poucas fotos. Na linha, lê um **código de barras**; cada região vira OK ou FALHA. Se todas passam, a peça é **APROVADO**.
 
-### 1. Detecção e Classificação
-- Treinamento em tempo real de novos modelos utilizando a técnica de *Transfer Learning*.
-- Definição de múltiplas Regiões de Interesse (ROI).
-- Classificação de objetos como "Conforme" ou "Não Conforme".
-- Suporte a múltiplos modelos salvos na nuvem.
+Dois tipos de projeto:
 
-### 2. Metrologia Digital
-- Ferramentas de medição entre pontos na imagem.
-- Sistema de calibração para converter pixels em milímetros (ou outras unidades reais).
-- Cálculo automático de distâncias e tolerâncias.
+| Tipo | Uso |
+| --- | --- |
+| **Detecção** | Transfer learning: MobileNetV2 extrai o embedding do recorte; um KNN classifica peça vs. fundo. Threshold padrão 85%. A UI pede 5 fotos aprovadas + 5 de fundo (teto de 20 por objeto). |
+| **Medição** | OpenCV.js no ROI: maior contorno, centroide e retângulo rotacionado, convertidos para mm após calibração (2 pontos + distância real). |
 
-### 3. Modo Operador vs. Modo Setup
-- **Modo Setup:** Interface administrativa para configurar regiões, treinar a IA, ajustar thresholds e calibrar medidas.
-- **Modo Operador:** Interface simplificada para linha de produção, com leitura de código de barras, feedback visual imediato e registro automático de histórico.
+Três telas:
 
-### 4. Histórico e Auditoria
-- Registro de todas as inspeções realizadas com timestamp, status, detalhes das regiões e imagem capturada.
-- Sincronização automática com banco de dados Supabase para acompanhamento remoto.
+- **Setup** — câmera, ROIs, treino, threshold, histórico, atalho de calibração
+- **Operador** — barcode, inferência ~3 FPS, badge APROVADO/FALHA, salvar evidência
+- **Calibração** — só metrologia: dois pontos na imagem + distância em mm
 
-## 🛠️ Estrutura do Projeto
+## Stack
 
-- `src/App.jsx`: Componente principal contendo a lógica da câmera, loop de processamento de IA e interface.
-- `src/db.js`: Gerenciamento do banco de dados local (IndexedDB) para armazenamento rápido de imagens de treinamento.
-- `src/supabase.js`: Configuração do cliente Supabase para persistência na nuvem.
-- `src/services/MeasurementService.js`: Lógica de processamento de medidas e cálculos geométricos.
-- `public/libs/`: Bibliotecas proprietárias do motor de inferência e visão computacional.
+| Camada | Tecnologia |
+| --- | --- |
+| UI | React 18, Vite 4, Tailwind CSS, Lucide |
+| IA | TensorFlow.js, MobileNetV2, KNN (`public/libs`) |
+| Visão / metrologia | OpenCV.js (`iauto-vision-core.js`, ~10 MB) |
+| Relatórios | jsPDF, SheetJS (CSV / Excel / PDF) |
+| Persistência **desta versão** | `localStorage` (modelos e inspeções) + RAM (fotos de treino) |
 
-## ⚙️ Instalação e Execução
+Não há cliente Supabase real neste checkout. `src/supabase.js` é um **mock** com a mesma API (`from`, `select`, `insert`…) sobre `localStorage`. `postgres` e `dotenv` no `package.json` são residual de uma versão cloud.
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/danielmirandajack/iAuto_Inpection.git
-   ```
+## Persistência (importante)
 
-2. Instale as dependências:
-   ```bash
-   npm install
-   ```
+| Dado | Onde | Sobrevive ao F5? |
+| --- | --- | --- |
+| Modelos, inspeções, samples (metadados) | `localStorage` → `supabase_mock_store` | Sim |
+| Config do modelo (ROIs, tipo) | `localStorage` → `modelData:Nome` | Sim |
+| Escala px/mm | `localStorage` → `smart_inspector_scale_factor` (**global**, não por modelo) | Sim |
+| Fotos de treino (JPEG) | Array em memória (`src/db.js`) | **Não** — retreinar após recarregar |
+| Evidência da inspeção | JPEG em base64 no histórico local | Sim, até estourar a quota do browser |
 
-3. Configure as variáveis de ambiente:
-   Crie um arquivo `.env` na raiz do projeto com as credenciais do seu projeto Supabase:
-   ```env
-   VITE_SUPABASE_URL=seu_url_do_supabase
-   VITE_SUPABASE_ANON_KEY=sua_chave_anonima
-   ```
+Schema lógico que o app espera (mesmo no mock):
 
-4. Inicie o servidor de desenvolvimento:
-   ```bash
-   npm run dev
-   ```
+- `models` — `id`, `name`, `config` (`type`, `regions`, `backgroundSamples`)
+- `inspections` — `barcode`, `model_name`, `status`, `image_url`, `details[]`
+- `training_samples` — `model_id`, `label`, `image_path` (o storage do mock é no-op)
 
-5. Para gerar a build de produção (com ofuscação):
-   ```bash
-   npm run build
-   ```
+## Como rodar
 
-## 🔒 Licença
+Repositório: [github.com/danielmirandajack/iAuto_Inpection](https://github.com/danielmirandajack/iAuto_Inpection)
 
-Este projeto é de uso restrito. Todos os direitos reservados a Daniel Miranda Jack.
+```bash
+npm install
+npm run dev
+```
+
+Build de produção (ofuscação + minify, sem sourcemap):
+
+```bash
+npm run build
+npm run preview
+```
+
+Não é necessário `.env`. O README antigo pedia `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`; esta versão local **não lê** essas variáveis.
+
+## Estrutura
+
+```
+src/
+  App.jsx                 Orquestrador (câmera + IA + UI)
+  InspectionHistory.jsx   Modal de auditoria e export CSV/Excel/PDF
+  supabase.js             Mock localStorage
+  db.js                   Imagens de treino em memória
+  useCalibration.js       Pontos A/B → fator px/mm
+  MetrologyContext.jsx    Polling até OpenCV (`window.cv`) ficar pronto
+  components/             Telas e sidebars
+  hooks/                  Câmera, modelos, treino, canvas, histórico
+  utils/                  Recorte, overlay, labels, tensores
+  services/MeasurementService.js   Contorno OpenCV + distância
+public/libs/
+  iauto-inference-engine.js   MobileNet (TF.js)
+  iauto-cluster-module.js     KNN classifier
+  iauto-vision-core.js        OpenCV.js
+```
+
+Detalhe dos módulos: ver [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+## Fluxo resumido
+
+1. Criar ou abrir um modelo (detecção ou medição).
+2. No setup, posicionar ROIs e gravar peças aprovadas + fundo.
+3. Ir para produção, ler o código de barras.
+4. Inferência contínua; **SALVAR & PRÓXIMO** grava evidência e status.
+
+Detecção: recorte da ROI → `mobilenet.infer` → KNN → label `NomeModelo::regionId` vs. `background`, comparado ao threshold.
+
+Medição: a cada 10 frames, maior contorno no ROI. Um objeto: L × A em mm. Dois ou mais: distância entre centroides.
+
+## Licença
+
+Uso restrito. Todos os direitos reservados a Daniel Miranda Jack / iAutomotivo.

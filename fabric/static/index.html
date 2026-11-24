@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iAuto Inspection — Tecido</title>
+  <link rel="stylesheet" href="/static/styles.css?v=15" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <strong>iAuto</strong> <span>Inspection</span>
+      <em>Tecido</em>
+    </div>
+    <div class="status" id="statusLine">Local · sem nuvem</div>
+  </header>
+
+  <ol class="steps" id="steps">
+    <li data-step="1" class="is-current"><b>1</b> Ligar câmera</li>
+    <li data-step="2"><b>2</b> Pausar imagem</li>
+    <li data-step="3"><b>3</b> Desenhar o quadrado</li>
+    <li data-step="4"><b>4</b> Gravar amostra</li>
+  </ol>
+  <ol class="steps" id="prodSteps" hidden>
+    <li data-step="p1" class="is-current"><b>1</b> Produção</li>
+    <li data-step="p2"><b>2</b> Tecido a passar</li>
+    <li data-step="p3"><b>3</b> Falha detectada</li>
+  </ol>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="video-wrap" id="videoWrap">
+        <img id="live" alt="Câmera" />
+        <canvas id="overlay"></canvas>
+        <p class="cam-empty" id="camEmpty">Ligue a câmera para ver o tecido.</p>
+        <div class="hud meter" id="meterHud">0.000 m</div>
+        <div class="hud fps" id="fpsHud">-- fps</div>
+        <div class="hud clock" id="clockHud">00:00:00</div>
+        <div class="alert-banner" id="alertBanner" hidden>
+          <p class="alert-kicker">Problema identificado</p>
+          <p class="alert-time" id="alertTime">--:--:--</p>
+          <p class="alert-detail" id="alertDetail"></p>
+        </div>
+        <div class="guide" id="guide">
+          <p id="guideTitle">Comece pela câmera</p>
+          <p id="guideText">Clique em <strong>Ligar câmera</strong> à direita. Depois pause para marcar o defeito.</p>
+        </div>
+      </div>
+      <div class="film-block" id="filmBlock" hidden>
+        <p>Se a imagem estiver tremida, clique noutro instante:</p>
+        <div class="filmstrip" id="filmstrip"></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card action-card" id="actionCard">
+        <div class="mode-switch">
+          <button type="button" id="modeCapture" class="mode is-on">Captura / treino</button>
+          <button type="button" id="modeProd" class="mode">Produção</button>
+        </div>
+        <h2 id="actionTitle">Passo 1 — Ligar</h2>
+        <p class="lead" id="actionLead">Ligue a webcam e deixe o tecido passar à frente.</p>
+
+        <label><span id="skuLabelText">Tecido já criado</span>
+          <select id="sku"></select>
+        </label>
+        <p class="hint" id="skuHelp">Esta lista são os tecidos que já existem. Escolha o desenho/cor que está a passar agora.</p>
+
+        <div id="newFabricRow">
+          <p class="subhead">Novo desenho ou cor?</p>
+          <div class="row">
+            <input id="newSku" placeholder="ex: brim-azul-liso" autocomplete="off" />
+            <button type="button" id="addSku" class="ghost">Criar</button>
+          </div>
+          <p class="hint">Escreva um nome novo só se ainda não estiver na lista. Depois grave fotos e treine este nome.</p>
+        </div>
+        <p class="hint" id="fabricHint"></p>
+
+        <div class="row">
+          <button type="button" id="startBtn" class="primary">Ligar câmera</button>
+          <button type="button" id="stopBtn" class="ghost">Parar</button>
+        </div>
+        <p class="hint" id="modelHint"></p>
+
+        <details class="image-controls" open>
+          <summary>Ajuste manual da imagem</summary>
+          <label>Exposição <output id="exposureValue">-2</output>
+            <input id="exposureControl" type="range" min="-8" max="0" step="1" value="-2" />
+          </label>
+          <label>Ganho <output id="gainValue">64</output>
+            <input id="gainControl" type="range" min="0" max="128" step="1" value="64" />
+          </label>
+          <label>Brilho <output id="brightnessValue">0</output>
+            <input id="brightnessControl" type="range" min="0" max="64" step="1" value="0" />
+          </label>
+          <label>Contraste <output id="contrastValue">50</output>
+            <input id="contrastControl" type="range" min="0" max="100" step="1" value="50" />
+          </label>
+          <label>Saturação <output id="saturationValue">64</output>
+            <input id="saturationControl" type="range" min="0" max="100" step="1" value="64" />
+          </label>
+          <button type="button" id="resetImageBtn" class="ghost">Restaurar imagem padrão</button>
+          <p class="hint">Comece pelo padrão. Ajuste exposição; use ganho só se ainda estiver escuro. Brilho elevado deixa os pretos cinza.</p>
+        </details>
+
+        <div id="capturePanel">
+          <button type="button" id="pauseBtn" class="pause">Pausar para marcar</button>
+          <button type="button" id="resumeBtn" class="ghost" hidden>Retomar vídeo</button>
+
+          <div id="drawHelp" class="draw-help" hidden>
+            <p><strong>Como desenhar:</strong> na imagem à esquerda, clique no canto do defeito, <em>mantenha pressionado</em> e arraste até o outro canto. Solte o rato. Aparece um retângulo azul.</p>
+          </div>
+
+          <button type="button" id="goodBtn" class="good" disabled>Gravar tecido BOM (foto atual, sem caixa)</button>
+          <p class="hint">Com a câmera ligada já pode gravar tecido bom. Defeito continua a precisar de pausar e desenhar o quadrado.</p>
+
+          <label>Tipo de defeito
+            <select id="defectClass"></select>
+          </label>
+          <button type="button" id="defectBtn" class="danger" disabled>Gravar DEFEITO (precisa do quadrado)</button>
+        </div>
+
+        <div id="prodPanel" hidden>
+          <p class="lead">O modelo analisa o tecido em contínuo. Quando houver falha, aparece o alerta vermelho com a hora.</p>
+          <ul class="alerts" id="alertList"></ul>
+        </div>
+        <p class="msg" id="captureMsg"></p>
+      </div>
+
+      <details class="card">
+        <summary>Câmera e velocidade</summary>
+        <label>Câmera
+          <select id="camera"></select>
+        </label>
+        <p class="hint">Use a ASUS FHD webcam. A OBS Virtual Camera só mostra o logótipo se o OBS não estiver a transmitir.</p>
+        <label>Velocidade (m/min)
+          <input id="speed" type="number" min="0.1" max="10" step="0.1" value="1" />
+        </label>
+        <label>Largura do tecido visível (cm)
+          <input id="fov" type="number" min="5" max="80" step="1" value="15" />
+        </label>
+        <label>Gravar tecido bom sozinho a cada (s) — 0 desliga
+          <input id="autoGood" type="number" min="0" max="60" step="1" value="0" />
+        </label>
+        <p class="hint" id="opticsHint"></p>
+      </details>
+
+      <div class="card" id="samplesCard">
+        <h2>Amostras deste tecido</h2>
+        <ul class="counts" id="counts"></ul>
+        <div class="sample-grid" id="sampleGrid"></div>
+        <div class="row">
+          <button type="button" id="trainBtn" class="primary">Treinar modelo</button>
+          <button type="button" id="resetTrainBtn" class="danger">Limpar treino</button>
+        </div>
+        <p class="hint" id="trainMsg">Grave pelo menos 4 fotos com quadrado por tipo de defeito. O × em cada miniatura apaga só essa foto. Treinar de novo junta as que restarem.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/app.js?v=15"></script>
+</body>
+</html>

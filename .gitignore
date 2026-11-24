@@ -115,3 +115,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Fabric inspection (Python local)
+fabric/.venv/
+fabric/data/**
+!fabric/data/.gitkeep
+fabric/**/__pycache__/
+

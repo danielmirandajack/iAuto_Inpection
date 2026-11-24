@@ -1,0 +1,6 @@
+# Fabric local data
+fabric/.venv/
+fabric/data/**
+!fabric/data/.gitkeep
+fabric/**/__pycache__/
+fabric/**/*.pyc
